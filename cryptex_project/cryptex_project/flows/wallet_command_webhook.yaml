@@ -1,0 +1,8 @@
+# Windmill Webhook Flow for Wallet Command Telegram Bot
+id: wallet_command_webhook
+name: Wallet Command Webhook
+triggers:
+  - type: webhook
+    path: /wallet-command
+    enabled: true
+script: scripts/monitors/s_wallet_command_bot.py

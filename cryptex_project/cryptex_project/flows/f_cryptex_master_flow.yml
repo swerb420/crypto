@@ -1,0 +1,47 @@
+summary: The Autonomous Trading Desk Pipeline - Scans, Correlates, Analyzes, Prices, and Alerts.
+trigger:
+  schedule:
+    cron: "*/2 * * * *" # Runs every 2 minutes
+steps:
+  - id: parallel_scans
+    summary: Fetch CEX trades and News in parallel.
+    parallel:
+      - id: scan_cex
+        script: ../scripts/monitors/s_cex_trader_monitor.py
+      - id: scan_news
+        script: ../scripts/monitors/s_news_monitor.py
+  - id: run_assessment_engine
+    summary: Run the main AI analysis and historical assessment engine.
+    script:
+      path: ../scripts/intelligence/s_assessment_engine.py
+      # This script should be updated to take the outputs of the scans as input
+      inputs:
+        correlated_events: [] # Placeholder for real correlation logic
+  - id: analysis_loop
+    summary: For each new signal, run the full validation pipeline.
+    for_loop:
+      iterator: u/results.run_assessment_engine
+      steps:
+        - id: run_risk_analyzer
+          summary: Check token safety.
+          script:
+            path: ../scripts/intelligence/s_risk_analyzer.py
+            inputs:
+              analyzed_tx: u/item
+        - id: check_if_safe
+          if:
+            - condition:
+                javascript: return results.run_risk_analyzer.risk_analysis.safety_rating === 'SAFE'
+              steps:
+                - id: get_live_prices
+                  summary: Get best real-time price across exchanges.
+                  script:
+                    path: ../scripts/intelligence/s_get_multi_exchange_prices.py
+                    inputs:
+                      trade_idea: u/results.run_risk_analyzer
+                - id: send_final_alert
+                  summary: Send the final, executable alert to Telegram.
+                  script:
+                    path: ../scripts/telegram/s_telegram_alerter.py
+                    inputs:
+                      signal: u/results.get_live_prices

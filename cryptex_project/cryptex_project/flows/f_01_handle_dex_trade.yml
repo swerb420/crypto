@@ -1,0 +1,33 @@
+summary: Triggered by a real-time webhook from Alchemy for a DEX trade.
+# This flow is triggered by a Webhook, not a schedule.
+trigger:
+  webhook: {}
+steps:
+  - id: save_and_correlate
+    summary: Save the new trade to the DB, then run the correlation engine.
+    script:
+      language: python
+      content: |
+        import json, psycopg2
+        # This script takes the webhook payload from Alchemy
+        def main(webhook_data: dict):
+            conn = psycopg2.connect(host='postgres', dbname='windmill', user='windmill', password='windmill')
+            asset = "ETH" # Placeholder - you would parse this from the webhook data
+            trader_id = "0xExampleDexWallet" # Placeholder
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO public.recent_trades (trader_id, asset, raw_data) VALUES (%s, %s, %s)",
+                    (trader_id, asset, json.dumps(webhook_data))
+                )
+            conn.commit()
+            conn.close()
+            # Return the asset so the next step knows what to check
+            return [asset]
+      inputs:
+        webhook_data: u/trigger
+  - id: run_correlator
+    summary: Call the correlation engine script.
+    script:
+      path: ../scripts/s_correlation_engine.py
+      inputs:
+        assets_to_check: u/results.save_and_correlate

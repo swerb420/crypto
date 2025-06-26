@@ -1,0 +1,9 @@
+# Windmill Scheduled Flow for Wallet Tracker
+id: wallet_tracker
+name: Wallet Tracker
+triggers:
+  - type: schedule
+    cron: "*/1 * * * *"  # every minute
+    timezone: UTC
+    enabled: true
+script: cryptex_project/scripts/monitors/s_wallet_tracker.py
